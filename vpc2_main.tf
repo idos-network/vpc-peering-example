@@ -89,6 +89,14 @@ resource "aws_security_group" "vpc2_sg" {
     cidr_blocks = ["10.0.0.0/16"] # VPC1 CIDR block
   }
 
+  # Allow custom application traffic (port 8484) from VPC1 CIDR block
+  ingress {
+    from_port   = 8484
+    to_port     = 8484
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"] # VPC1 CIDR block
+  }
+
   # Allow ICMP traffic from anywhere
   ingress {
     from_port   = -1
