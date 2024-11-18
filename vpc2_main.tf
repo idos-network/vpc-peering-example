@@ -73,6 +73,7 @@ resource "aws_security_group" "vpc2_sg" {
   provider = aws.vpc2
   vpc_id   = aws_vpc.vpc2.id
 
+  # Allow SSH from anywhere
   ingress {
     from_port   = 22
     to_port     = 22
@@ -80,6 +81,15 @@ resource "aws_security_group" "vpc2_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Allow HTTP (port 8080) from VPC1 CIDR block
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"] # VPC1 CIDR block
+  }
+
+  # Allow ICMP traffic from anywhere
   ingress {
     from_port   = -1
     to_port     = -1
@@ -87,6 +97,7 @@ resource "aws_security_group" "vpc2_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Allow all outbound traffic
   egress {
     from_port   = 0
     to_port     = 0
