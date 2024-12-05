@@ -17,10 +17,3 @@ resource "aws_vpc_peering_connection" "vpc1_to_vpc2" {
 
   depends_on = [null_resource.wait_for_vpc_propagation]
 }
-
-# Add route in VPC1's route table for traffic to VPC2
-resource "aws_route" "vpc1_to_vpc2_route" {
-  route_table_id         = aws_route_table.example_route_table.id
-  destination_cidr_block = aws_vpc.vpc2.cidr_block # Automatically fetch VPC2's CIDR block
-  vpc_peering_connection_id = aws_vpc_peering_connection.vpc1_to_vpc2.id
-}

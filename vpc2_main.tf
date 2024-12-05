@@ -154,8 +154,8 @@ resource "aws_vpc_peering_connection_accepter" "vpc2_accepts_peering" {
 # Add route in VPC2's route table for traffic to VPC1
 resource "aws_route" "vpc2_to_vpc1_route" {
   route_table_id         = aws_route_table.example_route_table_vpc2.id
-  destination_cidr_block = "10.0.0.0/16" # VPC1 CIDR block
-  vpc_peering_connection_id = aws_vpc_peering_connection_accepter.vpc2_accepts_peering.id
+  destination_cidr_block = "10.0.0.0/16" # Alex CIDR block
+  vpc_peering_connection_id = "pcx-0909ddb4ed1909ad6"
 }
 
 output "vpc2_instance_private_ip" {
