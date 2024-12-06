@@ -94,6 +94,13 @@ resource "aws_security_group" "vpc1_sg" {
     cidr_blocks = ["10.1.0.0/16"]
   }
 
+  ingress {
+    from_port   = 26656
+    to_port     = 26657
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.0.0/16"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
