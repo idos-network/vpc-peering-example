@@ -30,6 +30,10 @@ This example is meant to be a bare-bones version of what's necessary to particip
     terraform apply
     ```
 
+4. Tell idOS what's your `vpc_peering_connection_id`
+
+    You can consult it with `terraform output -raw vpc_peering_connection_id ; echo`
+
 5. Configure the VM to run the node
    1. Connect to the VM
        ```
