@@ -37,7 +37,7 @@ This example is meant to be a bare-bones version of what's necessary to particip
 5. Configure the VM to run the node
    1. Connect to the VM
        ```
-       ssh -i id_example ec2-user@`terraform output -json | jq -r .instance_public_ip.value`
+       ssh -i id_example ec2-user@`terraform output -raw instance_public_ip`
        ```
    2. Install docker and log out
 
@@ -50,13 +50,13 @@ This example is meant to be a bare-bones version of what's necessary to particip
        ```
    3. Copy over the `genesis.json` file
        ```
-       ssh -i id_example ec2-user@`terraform output -json | jq -r .instance_public_ip.value` mkdir -p kwil-home-dir
-       scp -i id_example genesis.json ec2-user@`terraform output -json | jq -r .instance_public_ip.value`:kwil-home-dir/
+       ssh -i id_example ec2-user@`terraform output -raw instance_public_ip` mkdir -p kwil-home-dir
+       scp -i id_example genesis.json ec2-user@`terraform output -raw instance_public_ip`:kwil-home-dir/
        ```
    3. Connect to the VM again
        Note that we'll be using ssh agent forwarding (`-A`) to facilitate authentication with GitHub.
        ```
-       ssh -A -i id_example ec2-user@`terraform output -json | jq -r .instance_public_ip.value`
+       ssh -A -i id_example ec2-user@`terraform output -raw instance_public_ip`
        ```
    4. Do the rest of the ambient setup
        ```
