@@ -1,101 +1,94 @@
+# Example idOS node with VPC peering
 
-```markdown
-# VPC Peering Example
+This example is meant to be a bare-bones version of what's necessary to participate in an idOS network.
 
-## Objective
-This document provides a clear guide to set up VPC peering between two AWS VPCs using Terraform. The example demonstrates how to configure the networking components required for seamless communication between instances in these VPCs.
+1. You'll need to ask the idOS association for a few values to use in the next steps:
+    - Access to the `idos-kgw` repository
+    - Terraform variables
+      - `remote_account_id`
+      - `remote_peer_region`
+      - `remote_vpc_id`
+      - `remote_cidr_block`
+      - `cidr_block`
+    - Node files
+      - `config.toml`
+      - `genesis.json`
 
-## Overview
-The Terraform code consists of three files:
-1. `vpc1_main.tf`: Sets up VPC1 and its resources.
-2. `vpc2_main.tf`: Sets up VPC2 and its resources.
-3. `vpc_peering.tf`: Configures the VPC peering connection and routing between VPC1 and VPC2.
+2. Fill in this module's variables.
+    > 💡 Tip
+    >
+    > Use a `terraform.tfvars` file for them to be picked up automatically
 
-The setup allows private communication between VPC1 and VPC2 and supports idOS node deployment.
+3. Generate a ssh keypair
+    ```
+    ssh-keygen -f id_example
+    ```
 
----
+4. Apply this config by running
+    ```
+    terraform init
+    terraform apply
+    ```
 
-## Files and Configuration
+5. Configure the VM to run the node
+   1. Connect to the VM
+       ```
+       ssh -i id_example ec2-user@`terraform output -json | jq -r .instance_public_ip.value`
+       ```
+   2. Install docker and log out
 
-### `vpc1_main.tf`
-Defines resources for VPC1:
-- **VPC Creation**:
-  - `aws_vpc.vpc1`: CIDR block `10.0.0.0/16`.
-- **Subnet**:
-  - `aws_subnet.subnet1`: CIDR block `10.0.1.0/24`.
-- **Internet Gateway**:
-  - `aws_internet_gateway.example_igw`: Enables internet access.
-- **Route Table**:
-  - `aws_route_table.example_route_table`: Adds a default route for the internet.
-  - `aws_route_table_association.example_route_table_assoc`: Associates the route table with the subnet.
-- **Security Group**:
-  - `aws_security_group.vpc1_sg`: Allows inbound SSH and ICMP traffic.
-- **EC2 Instance**:
-  - `aws_instance.vpc1_instance`: A t2.micro instance launched in the subnet.
+       If you don't log out after running `usermod`, the addition to the `docker` group won't be picked up.
+       ```
+       sudo dnf install -y docker
+       sudo usermod -a -G docker ec2-user
+       sudo systemctl enable --now docker.service
+       exit
+       ```
+   3. Copy over the `genesis.json` file
+       ```
+       ssh -i id_example ec2-user@`terraform output -json | jq -r .instance_public_ip.value` mkdir -p kwil-home-dir
+       scp -i id_example genesis.json ec2-user@`terraform output -json | jq -r .instance_public_ip.value`:kwil-home-dir/
+       ```
+   3. Connect to the VM again
+       Note that we'll be using ssh agent forwarding (`-A`) to facilitate authentication with GitHub.
+       ```
+       ssh -A -i id_example ec2-user@`terraform output -json | jq -r .instance_public_ip.value`
+       ```
+   4. Do the rest of the ambient setup
+       ```
+       sudo dnf install -y git git-lfs vim
+       sudo curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+       sudo chmod 755 /usr/local/bin/docker-compose
+       ssh-keyscan github.com >> .ssh/known_hosts
+       ```
+   5. Clone `idos-kgw`
+       ```
+       git clone git@github.com:idos-network/idos-kgw.git
+       cd idos-kgw
+       git lfs pull
+       ```
+   6. Create initial configuration
+       ```
+       docker network create kwil-dev
+       sed -i 's/^ARCH=arm64/ARCH=amd64/' .env
+       docker-compose -f compose.peer.yaml run --rm node /app/bin/kwil-admin setup peer --root-dir /app/home_dir/ --genesis /app/home_dir/genesis.json
+       docker-compose -f compose.peer.yaml up -d
+       ```
+   7. TODO Set `config.toml`
+       ```
+       ```
+   7. TODO Ask the network to join as a validator
+       ```
+       ```
+   8. Get the node's id
+       ```
+       docker-compose -f compose.peer.yaml run --rm -T node /app/bin/kwil-admin node status --rpcserver /sockets/node.admin-sock | jq -r .node.node_id
+       ```
+   8. Get back
+       ```
+       exit
+       ```
 
-### `vpc2_main.tf`
-Mirrors VPC1's setup:
-- **VPC Creation**:
-  - `aws_vpc.vpc2`: CIDR block `10.1.0.0/16`.
-- **Subnet**:
-  - `aws_subnet.subnet2`: CIDR block `10.1.1.0/24`.
-- **Internet Gateway**:
-  - `aws_internet_gateway.example_igw_vpc2`: Enables internet access.
-- **Route Table**:
-  - `aws_route_table.example_route_table_vpc2`: Adds a default route for the internet.
-  - `aws_route_table_association.example_route_table_assoc_vpc2`: Associates the route table with the subnet.
-- **Security Group**:
-  - `aws_security_group.vpc2_sg`: Allows inbound SSH and ICMP traffic.
-- **EC2 Instance**:
-  - `aws_instance.vpc2_instance`: A t2.micro instance launched in the subnet.
+6. Ask idOS to approve your request to join as a validator
 
-### `vpc_peering.tf`
-Establishes and configures the VPC peering connection:
-- **Peering Connection**:
-  - `aws_vpc_peering_connection.vpc1_to_vpc2`: Connects VPC1 and VPC2.
-- **Routing**:
-  - `aws_route.vpc1_to_vpc2_route`: Adds a route in VPC1 to VPC2.
-  - `aws_route.vpc2_to_vpc1_route`: Adds a route in VPC2 to VPC1.
-
----
-
-## Steps to Verify Connectivity
-
-1. **Access VPC1 Instance**:
-   SSH into the VPC1 instance using its public IP:
-   ```bash
-   ssh -i private_key.pem ec2-user@<VPC1_PUBLIC_IP>
-   ```
-
-2. **Test Connectivity to VPC2**:
-   Ping the private IP of the VPC2 instance:
-   ```bash
-   ping <VPC2_PRIVATE_IP>
-   ```
-
-3. **Access VPC2 Instance**:
-   SSH into the VPC2 instance using its public IP:
-   ```bash
-   ssh -i private_key.pem ec2-user@<VPC2_PUBLIC_IP>
-   ```
-
-4. **Test Connectivity to VPC1**:
-   Ping the private IP of the VPC1 instance:
-   ```bash
-   ping <VPC1_PRIVATE_IP>
-   ```
-
----
-
-## Simplified Workflow
-1. Set up both VPCs and their components using `vpc1_main.tf` and `vpc2_main.tf`.
-2. Configure the peering connection and routes with `vpc_peering.tf`.
-3. Verify private communication between the instances in VPC1 and VPC2.
-
----
-
-## Notes
-- Ensure proper key management for secure SSH access.
-- This setup can be extended to deploy idOS nodes in the peered VPCs.
-
-``` 
+99. Provide the `instance_private_ip` output to idOS to be included in the load balancer.

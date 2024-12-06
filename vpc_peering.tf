@@ -1,19 +1,21 @@
-resource "null_resource" "wait_for_vpc_propagation" {
-  depends_on = [aws_vpc.vpc1, aws_vpc.vpc2]
+resource "aws_vpc_peering_connection" "connection" {
+  vpc_id = aws_vpc.this.id
 
-  provisioner "local-exec" {
-    command = "sleep 30" # Wait for 30 seconds to allow AWS to propagate the VPC ID
+  peer_owner_id = var.remote_account_id
+  peer_vpc_id   = var.remote_vpc_id
+  peer_region   = var.remote_peer_region
+
+  tags = {
+    Name = "${var.name} to ${var.remote_peer_name}"
   }
 }
 
-resource "aws_vpc_peering_connection" "vpc1_to_vpc2" {
-  vpc_id      = aws_vpc.vpc1.id
-  peer_vpc_id = aws_vpc.vpc2.id
-  auto_accept = true
+resource "aws_route" "to_remote_vpc" {
+  route_table_id            = aws_route_table.this.id
+  destination_cidr_block    = var.remote_cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.connection.id
+}
 
-  tags = {
-    Name = "VPC1-to-VPC2"
-  }
-
-  depends_on = [null_resource.wait_for_vpc_propagation]
+output "vpc_peering_connection_id" {
+  value = aws_vpc_peering_connection.connection.id
 }
