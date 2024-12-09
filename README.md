@@ -110,23 +110,25 @@ This example is meant to be a bare-bones version of what's necessary to particip
         The previous command creates `config.toml` file in the `kwil-home-dir` folder. But we need to replace it with the file provided by idOS.
 
         ```bash
-        scp -i id_example config.toml ec2-user@`terraform output -raw instance_public_ip`:kwil-home-dir/
+        scp -i id_example config.toml ec2-user@`terraform output -raw instance_public_ip`:.
+        ssh -i id_example ec2-user@`terraform output -raw instance_public_ip` mv config.toml kwil-home-dir/
         ```
 
 7. Run the node in peer mode
    1. Connect to the VM again
 
         ```bash
-        ssh -A -i id_example ec2-user@`terraform output -raw instance_public_ip`
+        ssh -i id_example ec2-user@`terraform output -raw instance_public_ip`
         ```
 
    2. Run the node
 
         ```bash
+        cd idos-kgw
         docker-compose -f compose.peer.yaml up -d --build --force-recreate
         ```
 
-   3. Wait until the node catches up the network
+   3. Wait until the node catches up the network. It may take a few minutes.
 
         Watch the node logs
         ```bash
@@ -146,7 +148,7 @@ This example is meant to be a bare-bones version of what's necessary to particip
     1. Connect to the VM
 
         ```bash
-        ssh -A -i id_example ec2-user@`terraform output -raw instance_public_ip`
+        ssh -i id_example ec2-user@`terraform output -raw instance_public_ip`
         ```
 
     2. Request the network to become a validator
