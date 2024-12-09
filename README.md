@@ -76,31 +76,55 @@ This example is meant to be a bare-bones version of what's necessary to particip
        docker network create kwil-dev
        sed -i 's/^ARCH=arm64/ARCH=amd64/' .env
        docker-compose -f compose.peer.yaml run --rm node /app/bin/kwil-admin setup peer --root-dir /app/home_dir/ --genesis /app/home_dir/genesis.json
-
+       exit
        ```
-   7. Copy `config.toml` into `kwil-home-dir` folder (overwrite existent the file in this folder)
-   8. Run the peer node
+   7. Copy `config.toml` into `kwil-home-dir` folder (overwrite existing file in this folder)
+
+        The previous command creates `config.toml` file in the `kwil-home-dir` folder. But we need to replace it with the file provided by idOS.
         ```bash
-        docker-compose -f compose.peer.yaml up -d
+        scp -i id_example config.toml ec2-user@`terraform output -raw instance_public_ip`:kwil-home-dir/
         ```
 
-   9. Request the network to became a validator
-       ```bash
-       docker-compose run --rm node /app/bin/kwil-admin validators join --rpcserver /sockets/node.admin-sock
-       ```
-       Ask idOS to approve your request to join as a validator.
-       Wait until majority nodes of the network vote on this request.
-   10. To get an information about node and it's status
-       ```bash
-       docker-compose -f compose.peer.yaml run --rm -T node /app/bin/kwil-admin node status --rpcserver /sockets/node.admin-sock | jq -r .node.node_id
-       ```
-    11. To see if the node is in validator's list
+6. Run the node in peer mode
+   1. Connect to the VM again
         ```bash
-        docker-compose run --rm node /app/bin/kwil-admin validators list --rpcserver /sockets/node.admin-sock
+        ssh -A -i id_example ec2-user@`terraform output -raw instance_public_ip`
         ```
-   12. Get back
+   2. Run the node
+        ```bash
+        docker-compose -f compose.peer.yaml up -d --build --force-recreate
+        ```
+   3. Wait until the node catches up the network
+        Watch the node logs
+        ```bash
+        docker-compose logs -f
+        ```
+        The sign of the node is synchronized with the network - you see blocks are generated approximately every 6 seconds.
+   4.  Get back when you done
+        ```bash
+        exit
+        ```
+7.  How to make the node a validator
+    1. Connect to the VM
+        ```bash
+        ssh -A -i id_example ec2-user@`terraform output -raw instance_public_ip`
+        ```
+    2. Request the network to become a validator
+        ```bash
+        docker-compose run --rm node /app/bin/kwil-admin validators join --rpcserver /sockets/node.admin-sock
+        ```
+    3. Ask idOS to approve your request to join as a validator.
+    4. Wait until majority nodes of the network vote on this request. To observe the status:
+       1.  Get the node's validator public key
+       ```bash
+       docker-compose -f compose.peer.yaml run --rm -T node /app/bin/kwil-admin node status --rpcserver /sockets/node.admin-sock | jq -r .validator.pubkey
+       ```
+       2.  Look if the key is in validators list
+       ```bash
+       docker-compose run --rm node /app/bin/kwil-admin validators list --rpcserver /sockets/node.admin-sock
+       ```
+       3.  Get back
        ```bash
        exit
        ```
-
-6. Provide the `instance_private_ip` output to idOS to be included in the load balancer.
+8.  Provide the `instance_private_ip` output to idOS to be included in the load balancer.
