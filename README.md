@@ -31,9 +31,16 @@ This example is meant to be a bare-bones version of what's necessary to particip
     terraform apply
     ```
 
-5. Tell idOS what's your `vpc_peering_connection_id`
+5. Tell idOS what's your `vpc_peering_connection_id`, and wait for the peering request to be accepted
 
-    You can consult it with `terraform output -raw vpc_peering_connection_id ; echo`
+   You can get the `vpc_peering_connection_id` with `terraform output -raw vpc_peering_connection_id ; echo`
+
+   Here's how you can expect to see on AWS's console.
+
+   Before acceptance:
+     ![](./readme-assets/peering-before-acceptance.png)
+   After acceptance:
+     ![](./readme-assets/peering-after-acceptance.png)
 
 6. Configure the VM to run the node
    1. Connect to the VM
