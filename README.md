@@ -135,7 +135,9 @@ This example is meant to be a bare-bones version of what's necessary to particip
         docker-compose logs -f
         ```
 
-        The sign of the node is synchronized with the network - you see blocks are generated approximately every 6 seconds.
+        Look for obvious golang crash reports. Let us know if you need help fixing those.
+
+        The node will take some time to catch-up with the rest of the network. Let it run for a while. Eventually, you should start observing line logs with `"msg":"finalizing commit of block"`.
 
    4.  Get back when you done
 
@@ -154,7 +156,8 @@ This example is meant to be a bare-bones version of what's necessary to particip
     2. Request the network to become a validator
 
         ```bash
-        docker-compose run --rm node /app/bin/kwil-admin validators join --rpcserver /sockets/node.admin-sock
+        cd idos-kgw
+        docker-compose -f compose.peer.yaml run --rm node /app/bin/kwil-admin validators join --rpcserver /sockets/node.admin-sock
         ```
 
     3. Ask idOS to approve your request to join as a validator.
@@ -170,7 +173,7 @@ This example is meant to be a bare-bones version of what's necessary to particip
        2. Look if the key is in validators list
 
           ```bash
-          docker-compose run --rm node /app/bin/kwil-admin validators list --rpcserver /sockets/node.admin-sock
+          docker-compose -f compose.peer.yaml run --rm node /app/bin/kwil-admin validators list --rpcserver /sockets/node.admin-sock
           ```
 
        3. Get back
