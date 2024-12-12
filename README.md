@@ -6,7 +6,6 @@ This example is meant to be a bare-bones version of what's necessary to particip
 
     - Access to the `idos-kgw` repository
     - Terraform variables
-      - `region`
       - `remote_account_id`
       - `remote_peer_region`
       - `remote_vpc_id`
