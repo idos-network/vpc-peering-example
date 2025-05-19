@@ -12,8 +12,8 @@ This example is meant to be a bare-bones version of what's necessary to particip
       - `remote_cidr_block`
       - `cidr_block`
     - Node files
-      - `config.toml`
       - `genesis.json`
+      - `config.toml`
 
 2. Fill in this module's variables.
 
@@ -63,14 +63,7 @@ This example is meant to be a bare-bones version of what's necessary to particip
        exit
        ```
 
-   3. Copy over the `genesis.json` file
-
-       ```bash
-       ssh -i id_example ec2-user@`terraform output -raw instance_public_ip` mkdir -p kwil-home-dir
-       scp -i id_example genesis.json ec2-user@`terraform output -raw instance_public_ip`:kwil-home-dir/
-       ```
-
-   4. Connect to the VM again
+   3. Connect to the VM again
 
        Note that we'll be using ssh agent forwarding (`-A`) to facilitate authentication with GitHub.
 
@@ -78,7 +71,7 @@ This example is meant to be a bare-bones version of what's necessary to particip
        ssh -A -i id_example ec2-user@`terraform output -raw instance_public_ip`
        ```
 
-   5. Do the rest of the ambient setup
+   4. Do the rest of the ambient setup
 
        ```bash
        sudo dnf install -y git git-lfs vim
@@ -87,7 +80,7 @@ This example is meant to be a bare-bones version of what's necessary to particip
        ssh-keyscan github.com >> .ssh/known_hosts
        ```
 
-   6. Clone `idos-kgw`
+   5. Clone `idos-kgw`
 
        ```bash
        git clone git@github.com:idos-network/idos-kgw.git
@@ -95,7 +88,7 @@ This example is meant to be a bare-bones version of what's necessary to particip
        git lfs pull
        ```
 
-   7. Create initial configuration
+   6. Create initial configuration
 
        ```bash
        docker network create kwil-dev
@@ -104,7 +97,7 @@ This example is meant to be a bare-bones version of what's necessary to particip
        exit
        ```
 
-   8. Copy `genesis.json` `config.toml` files provided by idOS into `kwil-home-dir` folder
+   7. Copy `genesis.json` `config.toml` files provided by idOS into `kwil-home-dir` folder
 
         ```bash
         scp -i id_example genesis.json ec2-user@`terraform output -raw instance_public_ip`:/data/kwild-home_dir
