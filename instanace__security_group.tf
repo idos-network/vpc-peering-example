@@ -16,8 +16,8 @@ resource "aws_security_group" "this" {
   }
 
   ingress {
-    from_port   = 26656
-    to_port     = 26657
+    from_port   = 6600
+    to_port     = 6600
     protocol    = "tcp"
     cidr_blocks = [var.remote_cidr_block]
   }

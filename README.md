@@ -12,8 +12,8 @@ This example is meant to be a bare-bones version of what's necessary to particip
       - `remote_cidr_block`
       - `cidr_block`
     - Node files
-      - `config.toml`
       - `genesis.json`
+      - `config.toml`
 
 2. Fill in this module's variables.
 
@@ -63,14 +63,7 @@ This example is meant to be a bare-bones version of what's necessary to particip
        exit
        ```
 
-   3. Copy over the `genesis.json` file
-
-       ```bash
-       ssh -i id_example ec2-user@`terraform output -raw instance_public_ip` mkdir -p kwil-home-dir
-       scp -i id_example genesis.json ec2-user@`terraform output -raw instance_public_ip`:kwil-home-dir/
-       ```
-
-   4. Connect to the VM again
+   3. Connect to the VM again
 
        Note that we'll be using ssh agent forwarding (`-A`) to facilitate authentication with GitHub.
 
@@ -78,7 +71,7 @@ This example is meant to be a bare-bones version of what's necessary to particip
        ssh -A -i id_example ec2-user@`terraform output -raw instance_public_ip`
        ```
 
-   5. Do the rest of the ambient setup
+   4. Do the rest of the ambient setup
 
        ```bash
        sudo dnf install -y git git-lfs vim
@@ -87,7 +80,7 @@ This example is meant to be a bare-bones version of what's necessary to particip
        ssh-keyscan github.com >> .ssh/known_hosts
        ```
 
-   6. Clone `idos-kgw`
+   5. Clone `idos-kgw`
 
        ```bash
        git clone git@github.com:idos-network/idos-kgw.git
@@ -95,22 +88,20 @@ This example is meant to be a bare-bones version of what's necessary to particip
        git lfs pull
        ```
 
-   7. Create initial configuration
+   6. Create initial configuration
 
        ```bash
        docker network create kwil-dev
        sed -i 's/^ARCH=arm64/ARCH=amd64/' .env
-       docker-compose -f compose.peer.yaml run --rm node /app/bin/kwil-admin setup peer --root-dir /app/home_dir/ --genesis /app/home_dir/genesis.json
+       docker-compose run --build --rm kwild ./kwild key gen --key-file /app/home_dir/nodekey.json
        exit
        ```
 
-   8. Copy `config.toml` into `kwil-home-dir` folder (overwrite existing file in this folder)
-
-        The previous command creates `config.toml` file in the `kwil-home-dir` folder. But we need to replace it with the file provided by idOS.
+   7. Copy `genesis.json` `config.toml` files provided by idOS into `kwil-home-dir` folder
 
         ```bash
-        scp -i id_example config.toml ec2-user@`terraform output -raw instance_public_ip`:.
-        ssh -i id_example ec2-user@`terraform output -raw instance_public_ip` mv config.toml kwil-home-dir/
+        scp -i id_example genesis.json ec2-user@`terraform output -raw instance_public_ip`:/data/kwild-home_dir
+        scp -i id_example config.toml ec2-user@`terraform output -raw instance_public_ip`:/data/kwild-home_dir
         ```
 
 7. Run the node in peer mode
@@ -124,7 +115,7 @@ This example is meant to be a bare-bones version of what's necessary to particip
 
         ```bash
         cd idos-kgw
-        docker-compose -f compose.peer.yaml up -d --build --force-recreate
+        docker-compose -f compose.prod.yaml up -d --build --force-recreate
         ```
 
    3. Wait until the node catches up the network. It may take a few minutes.
@@ -156,7 +147,7 @@ This example is meant to be a bare-bones version of what's necessary to particip
 
         ```bash
         cd idos-kgw
-        docker-compose -f compose.peer.yaml run --rm node /app/bin/kwil-admin validators join --rpcserver /sockets/node.admin-sock
+        docker-compose -f compose.prod.yaml run --rm kwild kwild validators join -s /sockets/kwild.socket
         ```
 
     3. Ask idOS to approve your request to join as a validator.
@@ -166,13 +157,13 @@ This example is meant to be a bare-bones version of what's necessary to particip
        1. Get the node's validator public key
 
           ```bash
-          docker-compose -f compose.peer.yaml run --rm -T node /app/bin/kwil-admin node status --rpcserver /sockets/node.admin-sock | jq -r .validator.pubkey
+          docker-compose -f compose.prod.yaml run --rm kwild kwild admin status --rpcserver /sockets/kwild.socketk | jq -r .validator.pubkey
           ```
 
        2. Look if the key is in validators list
 
           ```bash
-          docker-compose -f compose.peer.yaml run --rm node /app/bin/kwil-admin validators list --rpcserver /sockets/node.admin-sock
+          docker-compose -f compose.peer.yaml run --rm kwild kwild validators list -s /sockets/kwild.socket
           ```
 
        3. Get back
