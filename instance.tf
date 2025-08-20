@@ -14,6 +14,44 @@ data "aws_ami" "vpc2_amazon_linux_2023" {
   owners = ["amazon"]
 }
 
+# IAM role for the EC2 instance
+resource "aws_iam_role" "this" {
+  name = "ec2-instance-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "EC2 Instance Role"
+  }
+}
+
+# IAM instance profile
+resource "aws_iam_instance_profile" "this" {
+  name = "ec2-instance-profile"
+  role = aws_iam_role.this.name
+
+  tags = {
+    Name = "EC2 Instance Profile"
+  }
+}
+
+# Attach basic policies to the role (optional - customize as needed)
+resource "aws_iam_role_policy_attachment" "ssm_managed_instance_core" {
+  role       = aws_iam_role.this.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
 resource "aws_instance" "this" {
   ami                    = data.aws_ami.vpc2_amazon_linux_2023.id
   instance_type          = "t3.large"
