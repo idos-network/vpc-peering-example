@@ -1,175 +1,267 @@
-# Example idOS node with VPC peering
+# Example idOS node with Transit Gateway (TGW)
 
-This example is meant to be a bare-bones version of what's necessary to participate in an idOS network.
+This example connects your VPC to the idOS network using **AWS Transit Gateway**. After idOS approves your account and you apply this Terraform config, your node can reach all other idOS VPCs over private IPs in the `10.x.x.x` range.
 
-1. You'll need to ask the idOS association for a few values to use in the next steps:
+**This setup uses TGW only** — there is no VPC peering.
 
-    - Access to the `idos-kgw` repository
-    - Terraform variables
-      - `remote_account_id`
-      - `remote_peer_region`
-      - `remote_vpc_id`
-      - `remote_cidr_block`
-      - `cidr_block`
-    - Node files
-      - `genesis.json`
-      - `config.toml`
+---
 
-2. Fill in this module's variables.
+## Why Transit Gateway (and not VPC peering)?
 
-    > 💡 Tip
-    >
-    > Use a `terraform.tfvars` file for them to be picked up automatically
+- **One connection for all idOS VPCs:** Attach once to the idOS Transit Gateway; you reach every other attached idOS VPC without separate peering to each.
+- **Simpler operations:** idOS manages the TGW and RAM share; you accept the share, attach your VPC, and add one route (`10.0.0.0/8` → TGW).
+- **Easier scaling:** New participants join via the same TGW; no new peering connections to create or accept.
 
-3. Generate a ssh keypair
+---
 
-    ```bash
-    ssh-keygen -f id_example
-    ```
+## Prerequisites
 
-4. Apply this config by running
+- AWS account in **eu-central-1** (same region as the idOS Transit Gateway).
+- Terraform >= 1.0.
+- **VPC CIDR assigned by idOS** (must not overlap existing participants; see [CIDR allocation](#cidr-allocation-reference) below).
+- Access to the `idos-kgw` repository and node files (`genesis.json`, `config.toml`) from idOS.
 
-    ```bash
-    terraform init
-    terraform apply
-    ```
+---
 
-5. Tell idOS what's your `vpc_peering_connection_id`, and wait for the peering request to be accepted
+## Playbook
 
-   You can get the `vpc_peering_connection_id` with `terraform output -raw vpc_peering_connection_id ; echo`
+### Step 1: Request access from idOS
 
-   Here's how you can expect to see on AWS's console.
+Send the following to idOS:
 
-   Before acceptance:
-     ![](./readme-assets/peering-before-acceptance.png)
-   After acceptance:
-     ![](./readme-assets/peering-after-acceptance.png)
+| What to provide     | Example / format |
+|---------------------|------------------|
+| **AWS account ID**   | `123456789012` |
+| **Requested VPC CIDR** | e.g. `10.1.0.0/16` or `10.4.0.0/16` (idOS will confirm or assign) |
+| **AWS region**       | Must be `eu-central-1` |
+| **Contact**          | Email or channel for receiving the share details |
 
-6. Configure the VM to run the node
-   1. Connect to the VM
+### Step 2: idOS approves and sends you TGW details
 
-       ```bash
-       ssh -i id_example ec2-user@`terraform output -raw instance_public_ip`
-       ```
+idOS will:
 
-   2. Install docker and log out
+1. Reserve your CIDR and add your **AWS account ID** to the TGW RAM share.
+2. Send you:
+   - **Transit Gateway ID** (e.g. `tgw-036bcb1e0b9289314`)
+   - **RAM resource share ARN** (e.g. `arn:aws:ram:eu-central-1:216989094875:resource-share/...`)
+   - **Confirmed VPC CIDR** (e.g. `10.1.0.0/16`)
+   - **Node files:** `genesis.json` and `config.toml`
 
-       If you don't log out after running `usermod`, the addition to the `docker` group won't be picked up.
+### Step 3: Deploy this Terraform config
 
-       ```bash
-       sudo dnf install -y docker
-       sudo usermod -a -G docker ec2-user
-       sudo systemctl enable --now docker.service
-       exit
-       ```
+1. **Generate an SSH key pair** (for the example instance):
 
-   3. Connect to the VM again
+   ```bash
+   ssh-keygen -f id_example
+   ```
 
-       Note that we'll be using ssh agent forwarding (`-A`) to facilitate authentication with GitHub.
+2. **Create `terraform.tfvars`** (e.g. from the example):
 
-       ```bash
-       ssh -A -i id_example ec2-user@`terraform output -raw instance_public_ip`
-       ```
+   ```bash
+   cp terraform.tfvars.example terraform.tfvars
+   ```
 
-   4. Do the rest of the ambient setup
+   Fill in the values idOS sent you:
 
-       ```bash
-       sudo dnf install -y git git-lfs vim
-       sudo curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
-       sudo chmod 755 /usr/local/bin/docker-compose
-       ssh-keyscan github.com >> .ssh/known_hosts
-       ```
+   ```hcl
+   region             = "eu-central-1"
+   name               = "Example"
+   transit_gateway_id  = "tgw-xxxxxxxxx"        # From idOS
+   tgw_ram_share_arn  = "arn:aws:ram:..."     # From idOS
+   vpc_cidr           = "10.1.0.0/16"         # Confirmed by idOS
+   ssh_keypair_pub_path = "id_example.pub"
+   ```
 
-   5. Clone `idos-kgw`
+3. **Apply:**
 
-       ```bash
-       git clone git@github.com:idos-network/idos-kgw.git
-       cd idos-kgw
-       git lfs pull
-       ```
+   ```bash
+   terraform init
+   terraform plan
+   terraform apply
+   ```
 
-   6. Create initial configuration
+4. **Accept the RAM share in AWS** (if not already accepted by Terraform):  
+   In **Resource Access Manager** → **Shared with me**, accept the pending share from idOS. Terraform can also accept it via `aws_ram_resource_share_accepter`.
 
-       ```bash
-       docker network create kwil-dev
-       sed -i 's/^ARCH=arm64/ARCH=amd64/' .env
-       docker-compose run --build --rm kwild ./kwild key gen --key-file /app/home_dir/nodekey.json
-       exit
-       ```
+### Step 4: Verify connectivity (TGW)
 
-   7. Copy `genesis.json` `config.toml` files provided by idOS into `kwil-home-dir` folder
+From your instance, test reachability to another idOS participant (idOS can give you a private IP to test):
 
-        ```bash
-        scp -i id_example genesis.json ec2-user@`terraform output -raw instance_public_ip`:/data/kwild-home_dir
-        scp -i id_example config.toml ec2-user@`terraform output -raw instance_public_ip`:/data/kwild-home_dir
-        ```
+```bash
+ssh -i id_example ec2-user@$(terraform output -raw instance_public_ip)
+ping -c 3 10.0.1.50
+nc -zv 10.0.1.50 8484
+```
 
-7. Run the node in peer mode
-   1. Connect to the VM again
+### Step 5: Configure the VM to run the node
 
-        ```bash
-        ssh -i id_example ec2-user@`terraform output -raw instance_public_ip`
-        ```
+1. **Connect to the VM**
 
-   2. Run the node
+   ```bash
+   ssh -i id_example ec2-user@$(terraform output -raw instance_public_ip)
+   ```
 
-        ```bash
-        cd idos-kgw
-        docker-compose -f compose.prod.yaml up -d --build --force-recreate
-        ```
+2. **Install Docker and log out** (so the `docker` group is applied)
 
-   3. Wait until the node catches up the network. It may take a few minutes.
+   ```bash
+   sudo dnf install -y docker
+   sudo usermod -a -G docker ec2-user
+   sudo systemctl enable --now docker.service
+   exit
+   ```
 
-        Watch the node logs
-        ```bash
-        docker-compose logs -f
-        ```
+3. **Reconnect with SSH agent forwarding** (for GitHub)
 
-        Look for obvious golang crash reports. Let us know if you need help fixing those.
+   ```bash
+   ssh -A -i id_example ec2-user@$(terraform output -raw instance_public_ip)
+   ```
 
-        The node will take some time to catch-up with the rest of the network. Let it run for a while. Eventually, you should start observing line logs with `"msg":"finalizing commit of block"`.
+4. **Install tools**
 
-   4.  Get back when you done
+   ```bash
+   sudo dnf install -y git git-lfs vim
+   sudo curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+   sudo chmod 755 /usr/local/bin/docker-compose
+   ssh-keyscan github.com >> .ssh/known_hosts
+   ```
 
-        ```bash
-        exit
-        ```
+5. **Clone idos-kgw**
 
-8.  How to make the node a validator
+   ```bash
+   git clone git@github.com:idos-network/idos-kgw.git
+   cd idos-kgw
+   git lfs pull
+   ```
 
-    1. Connect to the VM
+6. **Create initial configuration**
 
-        ```bash
-        ssh -i id_example ec2-user@`terraform output -raw instance_public_ip`
-        ```
+   ```bash
+   docker network create kwil-dev
+   sed -i 's/^ARCH=arm64/ARCH=amd64/' .env
+   docker-compose run --build --rm kwild ./kwild key gen --key-file /app/home_dir/nodekey.json
+   exit
+   ```
 
-    2. Request the network to become a validator
+7. **Copy `genesis.json` and `config.toml`** (from idOS) into the node home dir on the VM
 
-        ```bash
-        cd idos-kgw
-        docker-compose -f compose.prod.yaml run --rm kwild kwild validators join -s /sockets/kwild.socket
-        ```
+   ```bash
+   scp -i id_example genesis.json config.toml ec2-user@$(terraform output -raw instance_public_ip):/data/kwild-home_dir
+   ```
+   (Adjust the path if your idos-kgw home dir is different.)
 
-    3. Ask idOS to approve your request to join as a validator.
+### Step 6: Run the node
 
-    4. Wait until majority nodes of the network vote on this request. To observe the status:
+1. **Connect again**
 
-       1. Get the node's validator public key
+   ```bash
+   ssh -i id_example ec2-user@$(terraform output -raw instance_public_ip)
+   ```
 
-          ```bash
-          docker-compose -f compose.prod.yaml run --rm kwild kwild admin status --rpcserver /sockets/kwild.socketk | jq -r .validator.pubkey
-          ```
+2. **Start the node**
 
-       2. Look if the key is in validators list
+   ```bash
+   cd idos-kgw
+   docker-compose -f compose.prod.yaml up -d --build --force-recreate
+   ```
 
-          ```bash
-          docker-compose -f compose.peer.yaml run --rm kwild kwild validators list -s /sockets/kwild.socket
-          ```
+3. **Wait until the node catches up** (may take a few minutes)
 
-       3. Get back
+   ```bash
+   docker-compose logs -f
+   ```
 
-          ```bash
-          exit
-          ```
+   Look for logs like `"msg":"finalizing commit of block"`. Report any obvious crashes to idOS.
 
-9. Provide the `instance_private_ip` output to idOS to be included in the load balancer.
+4. **Exit when done**
+
+   ```bash
+   exit
+   ```
+
+### Step 7: Make the node a validator (optional)
+
+1. **Connect to the VM**
+
+   ```bash
+   ssh -i id_example ec2-user@$(terraform output -raw instance_public_ip)
+   ```
+
+2. **Request to become a validator**
+
+   ```bash
+   cd idos-kgw
+   docker-compose -f compose.prod.yaml run --rm kwild kwild validators join -s /sockets/kwild.socket
+   ```
+
+3. **Ask idOS to approve** your validator request.
+
+4. **Check status**
+
+   - Get the node’s validator public key:
+
+     ```bash
+     docker-compose -f compose.prod.yaml run --rm kwild kwild admin status --rpcserver /sockets/kwild.socket | jq -r .validator.pubkey
+     ```
+
+   - See if that key is in the validators list:
+
+     ```bash
+     docker-compose -f compose.prod.yaml run --rm kwild kwild validators list -s /sockets/kwild.socket
+     ```
+
+### Step 8: Provide private IP to idOS (load balancer)
+
+Send your instance **private IP** to idOS so they can add it to their load balancer:
+
+```bash
+terraform output -raw instance_private_ip
+```
+
+---
+
+## What this Terraform creates
+
+| Resource           | Purpose |
+|--------------------|---------|
+| VPC                | Your network with the idOS-assigned CIDR |
+| Subnets            | One per AZ (for TGW attachment and instance) |
+| Internet gateway   | Public access (SSH to instance) |
+| Route table        | `0.0.0.0/0` → IGW; `10.0.0.0/8` → Transit Gateway |
+| RAM accepter       | Accepts the TGW resource share from idOS (one-time) |
+| TGW VPC attachment | Connects your VPC to the idOS Transit Gateway |
+| Security group     | SSH from internet; Kwil RPC (8484) and P2P (6600) from `10.0.0.0/8` |
+| EC2 instance       | Example node (Amazon Linux 2023, t3.large) |
+
+---
+
+## CIDR allocation (reference)
+
+| CIDR           | Participant   |
+|----------------|---------------|
+| 10.0.0.0/16    | idOS          |
+| 10.1.0.0/16    | Partner1      |
+| 10.2.0.0/16    | Partner2      |
+| 10.3.0.0/16    | Partner3      |
+| 10.4.0.0/16    | Available     |
+| …              | Ask idOS for assignment |
+
+Specific allocations are confirmed by idOS.
+
+---
+
+## Troubleshooting
+
+- **TGW attachment stuck in "pending"**  
+  Accept the RAM share first (Resource Access Manager → Shared with me). Ensure subnets are in `eu-central-1`.
+
+- **Routes not working**  
+  Confirm the TGW attachment is in `available` state. Check the route table has `10.0.0.0/8` → TGW. Verify the instance’s security group allows 8484/6600 from `10.0.0.0/8`.
+
+- **Connectivity test**  
+  From your instance: `ping 10.0.x.x`, `nc -zv 10.0.x.x 8484` (use an IP idOS provides).
+
+---
+
+## Support
+
+For TGW access or issues, contact idOS with your AWS account ID and the details from Step 1.

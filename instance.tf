@@ -56,7 +56,7 @@ resource "aws_instance" "this" {
   ami                    = data.aws_ami.vpc2_amazon_linux_2023.id
   instance_type          = "t3.large"
   key_name               = aws_key_pair.this.key_name
-  subnet_id              = aws_subnet.this.id
+  subnet_id              = aws_subnet.this[0].id
   iam_instance_profile   = aws_iam_instance_profile.this.id
   vpc_security_group_ids = [aws_security_group.this.id]
 
@@ -78,10 +78,3 @@ resource "aws_key_pair" "this" {
   public_key = file(var.ssh_keypair_pub_path)
 }
 
-output "instance_public_ip" {
-  value = aws_instance.this.public_ip
-}
-
-output "instance_private_ip" {
-  value = aws_instance.this.private_ip
-}
