@@ -8,7 +8,7 @@ This example connects your VPC to the idOS network using **AWS Transit Gateway**
 
 ## Why Transit Gateway (and not VPC peering)?
 
-- **One connection for all idOS VPCs:** Attach once to the idOS Transit Gateway; you reach every other attached VPC (playground, alex, other participants) without separate peering to each.
+- **One connection for all idOS VPCs:** Attach once to the idOS Transit Gateway; you reach every other attached idOS VPC without separate peering to each.
 - **Simpler operations:** idOS manages the TGW and RAM share; you accept the share, attach your VPC, and add one route (`10.0.0.0/8` → TGW).
 - **Easier scaling:** New participants join via the same TGW; no new peering connections to create or accept.
 
@@ -236,14 +236,16 @@ terraform output -raw instance_private_ip
 
 ## CIDR allocation (reference)
 
-| CIDR           | Participant        |
-|----------------|--------------------|
-| 10.0.0.0/16    | idOS playground    |
-| 10.1.0.0/16    | Reserved (e.g. metapool) |
-| 10.2.0.0/16    | idOS alex          |
-| 10.3.0.0/16    | Reserved (e.g. horizen) |
-| 10.4.0.0/16    | Available          |
+| CIDR           | Participant   |
+|----------------|---------------|
+| 10.0.0.0/16    | idOS          |
+| 10.1.0.0/16    | Partner1      |
+| 10.2.0.0/16    | Partner2      |
+| 10.3.0.0/16    | Partner3      |
+| 10.4.0.0/16    | Available     |
 | …              | Ask idOS for assignment |
+
+Specific allocations are confirmed by idOS.
 
 ---
 
