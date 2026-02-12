@@ -43,7 +43,7 @@ idOS will:
 1. Reserve your CIDR and add your **AWS account ID** to the TGW RAM share.
 2. Send you:
    - **Transit Gateway ID** (e.g. `tgw-036bcb1e0b9289314`)
-   - **RAM resource share ARN** (e.g. `arn:aws:ram:eu-central-1:216989094875:resource-share/...`)
+   - **RAM resource share ARN** (e.g. `arn:aws:ram:eu-central-1:XXXXXXXXXXXX:resource-share/...`)
    - **Confirmed VPC CIDR** (e.g. `10.1.0.0/16`)
    - **Node files:** `genesis.json` and `config.toml`
 
@@ -72,16 +72,15 @@ idOS will:
    ssh_keypair_pub_path = "id_example.pub"
    ```
 
-3. **Apply:**
+3. **Apply** (Terraform will accept the RAM invitation and create the TGW attachment):
 
    ```bash
    terraform init
-   terraform plan
+   terraform plan   # Should show: accepter + TGW attachment + route
    terraform apply
    ```
 
-4. **Accept the RAM share in AWS** (if not already accepted by Terraform):  
-   In **Resource Access Manager** → **Shared with me**, accept the pending share from idOS. Terraform can also accept it via `aws_ram_resource_share_accepter`.
+   Terraform accepts the RAM share when you apply. If you see **"No pending RAM Resource Share invitation found"**, the share was already accepted (e.g. in the console)—see [Troubleshooting](#troubleshooting) to import it.
 
 ### Step 4: Verify connectivity (TGW)
 
@@ -151,11 +150,7 @@ nc -zv 10.0.1.50 8484
 
 ### Step 6: Run the node
 
-1. **Connect again**
-
-   ```bash
-   ssh -i id_example ec2-user@$(terraform output -raw instance_public_ip)
-   ```
+1. **Connect to the VM** (same as Step 5.1)
 
 2. **Start the node**
 
@@ -164,7 +159,7 @@ nc -zv 10.0.1.50 8484
    docker-compose -f compose.prod.yaml up -d --build --force-recreate
    ```
 
-3. **Wait until the node catches up** (may take a few minutes)
+3. **Wait until the node catches up** (may take a few hour)
 
    ```bash
    docker-compose logs -f
@@ -180,11 +175,7 @@ nc -zv 10.0.1.50 8484
 
 ### Step 7: Make the node a validator (optional)
 
-1. **Connect to the VM**
-
-   ```bash
-   ssh -i id_example ec2-user@$(terraform output -raw instance_public_ip)
-   ```
+1. **Connect to the VM** (same as Step 5.1)
 
 2. **Request to become a validator**
 
@@ -251,13 +242,18 @@ Specific allocations are confirmed by idOS.
 
 ## Troubleshooting
 
-- **TGW attachment stuck in "pending"**  
+- **"No pending RAM Resource Share invitation found"**
+  The share was already accepted (e.g. in the console). Import it so Terraform manages the existing acceptance:
+  `terraform import aws_ram_resource_share_accepter.tgw "<your_tgw_ram_share_arn>"`
+  Use the exact RAM share ARN idOS gave you (e.g. `arn:aws:ram:eu-central-1:XXXXXXXXXXXX:resource-share/...`).
+
+- **TGW attachment stuck in "pending"**
   Accept the RAM share first (Resource Access Manager → Shared with me). Ensure subnets are in `eu-central-1`.
 
-- **Routes not working**  
+- **Routes not working**
   Confirm the TGW attachment is in `available` state. Check the route table has `10.0.0.0/8` → TGW. Verify the instance’s security group allows 8484/6600 from `10.0.0.0/8`.
 
-- **Connectivity test**  
+- **Connectivity test**
   From your instance: `ping 10.0.x.x`, `nc -zv 10.0.x.x 8484` (use an IP idOS provides).
 
 ---
