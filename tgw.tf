@@ -1,4 +1,9 @@
 # --- Accept the RAM share (one-time, after idOS adds your account) ---
+# You are in a different AWS Organization: idOS shares the TGW with your account ID;
+# you must accept the share (this resource, or manually in RAM → Shared with me).
+# If you see "No pending RAM Resource Share invitation found", the share was already
+# accepted (e.g. in the console). Import it instead of creating:
+#   terraform import aws_ram_resource_share_accepter.tgw "<tgw_ram_share_arn>"
 
 resource "aws_ram_resource_share_accepter" "tgw" {
   share_arn = var.tgw_ram_share_arn
@@ -26,5 +31,5 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "this" {
 resource "aws_route" "to_tgw" {
   route_table_id         = aws_route_table.this.id
   destination_cidr_block = "10.0.0.0/8"
-  transit_gateway_id     = var.transit_gateway_id
+  transit_gateway_id     = aws_ec2_transit_gateway_vpc_attachment.this.transit_gateway_id
 }
